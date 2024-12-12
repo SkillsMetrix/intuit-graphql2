@@ -1,185 +1,84 @@
+import { useMutation } from "@apollo/client";
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { SIGNUP_USER } from "../gqloperations/mutations";
+export default function Signup() {
+  const [formData, setFormData] = useState({});
+  const [signupUser, { data, loading, error }] = useMutation(SIGNUP_USER);
 
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
 
-https://github.com/SkillsMetrix/intuit-graphql/blob/main/react-client.zip
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log(formData);
+    signupUser({
+      variables: {
+        userNew: formData,
+      },
+    });
+  };
+  return (
+    <div className="container my-container">
+      {error && <div className="red card-panel">{error.message}</div>}
+      {data && data.user && (
+        <div className="green card-panel">
+          {data.user.firstName} is registerd
+        </div>
+      )}
+      <h5>Signup!!</h5>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          placeholder="First Name"
+          name="firstName"
+          onChange={handleChange}
+          required
+        />
+        <input
+          type="text"
+          placeholder="Last Name"
+          name="lastName"
+          onChange={handleChange}
+          required
+        />
+        <input
+          type="email"
+          placeholder="email"
+          name="email"
+          onChange={handleChange}
+          required
+        />
+        <input
+          type="password"
+          placeholder="password"
+          name="password"
+          onChange={handleChange}
+          required
+        />
+        <Link to="/login">
+          <p>Already have an account ?</p>
+        </Link>
+        <button className="btn #673ab7 deep-purple" type="submit">
+          Submit
+        </button>
+      </form>
+    </div>
+  );
+}
+-
 
----------
-
-import mongoose from "mongoose";
-
-const quoteSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-  },
-  by: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-  },
-});
-export default mongoose.model("Quote", quoteSchema);
---------
-import mongoose from "mongoose";
-
-const userSchema = new mongoose.Schema({
-  firstName: {
-    type: String,
-    required: true,
-  },
-  lastName: {
-    type: String,
-    required: true,
-  },
-  email: {
-    type: String,
-    required: true,
-  },
-  password: {
-    type: String,
-    required: true,
-  },
-});
-export default mongoose.model("User", userSchema);
-----------
-import mongoose from "mongoose";
-//import { quotes, users } from "./fakedb.js";
-import { randomBytes } from "crypto";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import User from "./models/User.js";
-import { JWT_SECRET } from "./config.js";
-import Quote from "./models/Quotes.js";
-const resolvers = {
-  Query: {
-    greet: () => {
-      return "Welcome to GraphQL";
-    },
-    users: async () => await User.find({}),
-    user: async (_, { _id }) => await User.findOne({ _id }),
-    quotes: async () => await Quote.find({}),
-    iquote: async (_, { by }) => await Quote.find({ by }),
-  },
-  User: {
-    quotes: (ur) => quotes.filter((quote) => quote.by == ur._id),
-  },
-  Mutation: {
-    signupUserDummy: async (_, { userNew }) => {
-      const user = await User.findOne({ email: userNew.email });
-      if (user) {
-        throw new Error("User email is already registered....!");
-      }
-      const hashedPassword = await bcrypt.hash(userNew.password, 12);
-      const newUser = new User({
-        ...userNew,
-        password: hashedPassword,
-      });
-      return await newUser.save();
-    },
-    signinUser: async (_, { userSignin }) => {
-      const user = await User.findOne({ email: userSignin.email });
-      if (!user) {
-        throw new Error("User doesnt exist with that email...!");
-      }
-      const doMatch = await bcrypt.compare(userSignin.password, user.password);
-      if (!doMatch) {
-        throw new Error("email or password is invalid");
-      }
-      const token = jwt.sign({ userId: user._id }, JWT_SECRET);
-      return { token };
-    },
-    createQuote: async (_, { name }, { userId }) => {
-      if (!userId) throw new Error("You must logged in");
-      const newQuote = new Quote({
-        name,
-        by: userId,
-      });
-      await newQuote.save();
-      return "Quote saved..!";
-    },
-  },
-};
-export default resolvers;
---------
-
-import { gql } from "apollo-server";
-
-const typeDefs = gql`
-  type Query {
-    greet: String
-    users: [User]
-    user(_id: ID): User
-    quotes: [Quote]
-    iquote(by: ID): [Quote]
-  }
-  type User {
-    _id: ID
-    firstName: String
-    lastName: String
-    email: String
-    password: String
-    quotes: [Quote]
-  }
-  type Quote {
-    name: String
-    by: ID
-  }
-  type Token{
-    token:String
-  }
-  type Mutation {
-    signupUserDummy(userNew: UserInput): User
-    signinUser(userSignin:UserSigninInput): Token
-    createQuote(name:String):String
-  }
-  input UserInput {
-    firstName: String
-    lastName: String
-    email: String
-    password: String
-  }
-  input UserSigninInput{
-    email:String
-    password:String
+import { gql } from "@apollo/client";
+export const SIGNUP_USER = gql`
+  mutation createUser($userNew: UserInput) {
+    user: signupUserDummy(userNew: $userNew) {
+     
+      firstName
+    
+    }
   }
 `;
-
-export default typeDefs;
-
------------
-
-import { ApolloServer } from "apollo-server";
-import { ApolloServerPluginLandingPageGraphQLPlayground } from "apollo-server-core";
-import typeDefs from "./schemaGql.js";
-import resolvers from "./resolvers.js";
-import mongoose from "mongoose";
-import jwt from "jsonwebtoken";
-import { JWT_SECRET, MONGO_URI } from "./config.js";
-
-mongoose.connect(MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
-// its a middleware
-const context= ({ req }) => {
-  const { authorization } = req.headers;
-  if (authorization) {
-    const { userId } = jwt.verify(authorization, JWT_SECRET);
-    return { userId };
-  }
-}
-mongoose.connection.on("connected", () => {
-  console.log("DB Cloud Connected");
-});
-mongoose.connection.on("error", (err) => {
-  console.log("DB Cloud error", err);
-});
-
-const server = new ApolloServer({
-  typeDefs,
-  resolvers,
-  context,
- 
-  plugins: [ApolloServerPluginLandingPageGraphQLPlayground()],
-});
-server.listen().then(({ url }) => {
-  console.log("server is ready " + url);
-});
